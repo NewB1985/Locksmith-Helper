@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Locksmith Pro">
+  <title>Locksmith Pro</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const Lock = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+    );
+
+    const Plus = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"/>
+        <line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+    );
+
+    const Search = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="11" cy="11" r="8"/>
+        <path d="m21 21-4.35-4.35"/>
+      </svg>
+    );
+
+    const Key = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+      </svg>
+    );
+
+    const User = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+        <circle cx="12" cy="7" r="4"/>
+      </svg>
+    );
+
+    const Settings = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>
+    );
+
+    const LogOut = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+        <polyline points="16 17 21 12 16 7"/>
+        <line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
+    );
+
+    const Eye = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>
+    );
+
+    const EyeOff = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+        <line x1="1" y1="1" x2="23" y2="23"/>
+      </svg>
+    );
+
+    const Save = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+        <polyline points="17 21 17 13 7 13 7 21"/>
+        <polyline points="7 3 7 8 15 8"/>
+      </svg>
+    );
+
+    const X = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"/>
+        <line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    );
+
+    const encrypt = (text, password) => {
+      const encoded = btoa(unescape(encodeURIComponent(JSON.stringify({ data: text, key: password }))));
+      return encoded;
+    };
+
+    const decrypt = (encoded, password) => {
+      try {
+        const decoded = JSON.parse(decodeURIComponent(escape(atob(encoded))));
+        if (decoded.key === password) {
+          return decoded.data;
+        }
+        return null;
+      } catch {
+        return null;
+      }
+    };
+
+    function LocksmithApp() {
+      const [isAuthenticated, setIsAuthenticated] = useState(false);
+      const [password, setPassword] = useState('');
+      const [hasPassword, setHasPassword] = useState(false);
+      const [loginError, setLoginError] = useState('');
+      const [showPassword, setShowPassword] = useState(false);
+      const [currentPassword, setCurrentPassword] = useState('');
+      
+      const [customers, setCustomers] = useState([]);
+      const [searchTerm, setSearchTerm] = useState('');
+      const [currentView, setCurrentView] = useState('list');
+      const [selectedCustomer, setSelectedCustomer] = useState(null);
+      const [editingCustomer, setEditingCustomer] = useState(null);
+      const [confirmDialog, setConfirmDialog] = useState(null);
+      const [expandedJob, setExpandedJob] = useState(null);
+      const [customerView, setCustomerView] = useState('jobs');
+      const [keyFilter, setKeyFilter] = useState({ keyType: 'all', search: '' });
+      const [keySortBy, setKeySortBy] = useState('keyway');
+      
+      const [lastActivity, setLastActivity] = useState(Date.now());
+      const [lockTimeout] = useState(5 * 60 * 1000);
+
+      useEffect(() => {
+        const stored = localStorage.getItem('locksmith_password');
+        setHasPassword(!!stored);
+      }, []);
+
+      useEffect(() => {
+        if (!isAuthenticated) return;
+
+        const checkActivity = setInterval(() => {
+          if (Date.now() - lastActivity > lockTimeout) {
+            handleLogout();
+          }
+        }, 10000);
+
+        const resetActivity = () => setLastActivity(Date.now());
+        window.addEventListener('click', resetActivity);
+        window.addEventListener('keypress', resetActivity);
+        window.addEventListener('touchstart', resetActivity);
+
+        return () => {
+          clearInterval(checkActivity);
+          window.removeEventListener('click', resetActivity);
+          window.removeEventListener('keypress', resetActivity);
+          window.removeEventListener('touchstart', resetActivity);
+        };
+      }, [isAuthenticated, lastActivity, lockTimeout]);
+
+      useEffect(() => {
+        if (isAuthenticated && currentPassword) {
+          loadCustomers();
+        }
+      }, [isAuthenticated, currentPassword]);
+
+      const loadCustomers = () => {
+        const stored = localStorage.getItem('locksmith_customers');
+        if (stored) {
+          const decrypted = decrypt(stored, currentPassword);
+          if (decrypted) {
+            setCustomers(JSON.parse(decrypted));
+          }
+        }
+      };
+
+      const saveCustomers = (newCustomers) => {
+        const encrypted = encrypt(JSON.stringify(newCustomers), currentPassword);
+        localStorage.setItem('locksmith_customers', encrypted);
+        setCustomers(newCustomers);
+      };
+
+      const handleLogin = () => {
+        if (!hasPassword) {
+          if (password.length < 6) {
+            setLoginError('Password must be at least 6 characters');
+            return;
+          }
+          localStorage.setItem('locksmith_password', encrypt('verified', password));
+          setCurrentPassword(password);
+          setIsAuthenticated(true);
+          setPassword('');
+        } else {
+          const stored = localStorage.getItem('locksmith_password');
+          const verified = decrypt(stored, password);
+          
+          if (verified === 'verified') {
+            setCurrentPassword(password);
+            setIsAuthenticated(true);
+            setPassword('');
+            setLoginError('');
+          } else {
+            setLoginError('Incorrect password');
+          }
+        }
+      };
+
+      const handleLogout = () => {
+        setIsAuthenticated(false);
+        setCurrentPassword('');
+        setPassword('');
+        setSelectedCustomer(null);
+        setEditingCustomer(null);
+        setCurrentView('list');
+        setCustomerView('jobs');
+        setExpandedJob(null);
+      };
+
+      const addCustomer = () => {
+        setEditingCustomer({
+          id: Date.now(),
+          name: '',
+          phone: '',
+          address: '',
+          notes: '',
+          jobs: []
+        });
+        setCurrentView('edit');
+      };
+
+      const saveCustomer = () => {
+        if (!editingCustomer.name.trim()) return;
+        const updated = customers.filter(c => c.id !== editingCustomer.id);
+        updated.push(editingCustomer);
+        saveCustomers(updated);
+        setEditingCustomer(null);
+        setCurrentView('list');
+      };
+
+      const deleteCustomer = (id) => {
+        setConfirmDialog({
+          message: 'Delete this customer and all associated jobs? This cannot be undone.',
+          onConfirm: () => {
+            saveCustomers(customers.filter(c => c.id !== id));
+            setSelectedCustomer(null);
+            setCurrentView('list');
+            setConfirmDialog(null);
+          },
+          onCancel: () => setConfirmDialog(null)
+        });
+      };
+
+      const addJob = () => {
+        if (!selectedCustomer) return;
+        
+        const newJob = {
+          id: Date.now(),
+          date: new Date().toISOString().split('T')[0],
+          address: '',
+          city: '',
+          zip: '',
+          notes: '',
+          onsiteContact: '',
+          onsitePhone: '',
+          keys: []
+        };
+
+        const updated = customers.map(c => {
+          if (c.id === selectedCustomer.id) {
+            return { ...c, jobs: [...c.jobs, newJob] };
+          }
+          return c;
+        });
+
+        saveCustomers(updated);
+        setSelectedCustomer(updated.find(c => c.id === selectedCustomer.id));
+      };
+
+      const updateJob = (jobId, field, value) => {
+        const updated = customers.map(c => {
+          if (c.id === selectedCustomer.id) {
+            return {
+              ...c,
+              jobs: c.jobs.map(j => j.id === jobId ? { ...j, [field]: value } : j)
+            };
+          }
+          return c;
+        });
+
+        saveCustomers(updated);
+        setSelectedCustomer(updated.find(c => c.id === selectedCustomer.id));
+      };
+
+      const deleteJob = (jobId) => {
+        setConfirmDialog({
+          message: 'Delete this job? This cannot be undone.',
+          onConfirm: () => {
+            const updated = customers.map(c => {
+              if (c.id === selectedCustomer.id) {
+                return { ...c, jobs: c.jobs.filter(j => j.id !== jobId) };
+              }
+              return c;
+            });
+            saveCustomers(updated);
+            const updatedCustomer = updated.find(c => c.id === selectedCustomer.id);
+            setSelectedCustomer(updatedCustomer);
+            setConfirmDialog(null);
+          },
+          onCancel: () => setConfirmDialog(null)
+        });
+      };
+
+      const addKeyToJob = (jobId) => {
+        const newKey = {
+          id: Date.now() + Math.random(),
+          keyType: 'Change Key',
+          keyway: '',
+          site: '',
+          bitting: '',
+          tag: '',
+          quantity: 1,
+          notes: ''
+        };
+
+        const updated = customers.map(c => {
+          if (c.id === selectedCustomer.id) {
+            return {
+              ...c,
+              jobs: c.jobs.map(j => {
+                if (j.id === jobId) {
+                  return { ...j, keys: [...(j.keys || []), newKey] };
+                }
+                return j;
+              })
+            };
+          }
+          return c;
+        });
+
+        saveCustomers(updated);
+        setSelectedCustomer(updated.find(c => c.id === selectedCustomer.id));
+      };
+
+      const updateKey = (jobId, keyId, field, value) => {
+        const updated = customers.map(c => {
+          if (c.id === selectedCustomer.id) {
+            return {
+              ...c,
+              jobs: c.jobs.map(j => {
+                if (j.id === jobId) {
+                  return {
+                    ...j,
+                    keys: (j.keys || []).map(k => k.id === keyId ? { ...k, [field]: value } : k)
+                  };
+                }
+                return j;
+              })
+            };
+          }
+          return c;
+        });
+
+        saveCustomers(updated);
+        setSelectedCustomer(updated.find(c => c.id === selectedCustomer.id));
+      };
+
+      const deleteKey = (jobId, keyId) => {
+        setConfirmDialog({
+          message: 'Delete this key? This cannot be undone.',
+          onConfirm: () => {
+            const updated = customers.map(c => {
+              if (c.id === selectedCustomer.id) {
+                return {
+                  ...c,
+                  jobs: c.jobs.map(j => {
+                    if (j.id === jobId) {
+                      return { ...j, keys: (j.keys || []).filter(k => k.id !== keyId) };
+                    }
+                    return j;
+                  })
+                };
+              }
+              return c;
+            });
+            saveCustomers(updated);
+            setSelectedCustomer(updated.find(c => c.id === selectedCustomer.id));
+            setConfirmDialog(null);
+          },
+          onCancel: () => setConfirmDialog(null)
+        });
+      };
+
+      const filteredCustomers = customers.filter(c =>
+        c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.phone.includes(searchTerm) ||
+        c.address.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+
+      const ConfirmDialog = () => (
+        confirmDialog && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+            }}
+          >
+            <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl">
+              <p className="text-gray-800 mb-6 text-base">{confirmDialog.message}</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    confirmDialog.onCancel();
+                  }}
+                  className="flex-1 px-4 py-3 bg-gray-200 text-gray-800 rounded-lg font-medium hover:bg-gray-300 active:bg-gray-400 text-base min-h-[44px]"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    confirmDialog.onConfirm();
+                  }}
+                  className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 active:bg-red-800 text-base min-h-[44px]"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      );
+
+      if (!isAuthenticated) {
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-blue-900 to-blue-700 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
+              <div className="flex justify-center mb-6">
+                <div className="bg-blue-600 p-4 rounded-full">
+                  <Lock className="w-12 h-12 text-white" />
+                </div>
+              </div>
+              
+              <h1 className="text-2xl font-bold text-center text-gray-800 mb-2">
+                Locksmith Pro
+              </h1>
+              <p className="text-center text-gray-600 mb-6">
+                {hasPassword ? 'Enter your password to continue' : 'Create a password to secure your data'}
+              </p>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder={hasPassword ? 'Enter password' : 'Create password (min 6 characters)'}
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-3.5 text-gray-500"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+
+              {loginError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {loginError}
+                </div>
+              )}
+
+              <button
+                onClick={handleLogin}
+                className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              >
+                {hasPassword ? 'Unlock' : 'Create Password & Continue'}
+              </button>
+
+              <p className="text-xs text-gray-500 text-center mt-6">
+                All data is encrypted and stored locally on your device
+              </p>
+            </div>
+          </div>
+        );
+      }
+
+      if (currentView === 'edit' && editingCustomer) {
+        return (
+          <div className="min-h-screen bg-gray-50">
+            <div className="bg-blue-600 text-white p-4 flex items-center justify-between">
+              <button onClick={() => { setEditingCustomer(null); setCurrentView('list'); }}>
+                <X className="w-6 h-6" />
+              </button>
+              <h1 className="text-lg font-semibold">
+                {customers.find(c => c.id === editingCustomer.id) ? 'Edit Customer' : 'New Customer'}
+              </h1>
+              <button onClick={saveCustomer} disabled={!editingCustomer.name.trim()}>
+                <Save className={`w-6 h-6 ${!editingCustomer.name.trim() ? 'opacity-50' : ''}`} />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name *</label>
+                <input
+                  type="text"
+                  value={editingCustomer.name}
+                  onChange={(e) => setEditingCustomer({ ...editingCustomer, name: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="John Doe"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <input
+                  type="tel"
+                  value={editingCustomer.phone}
+                  onChange={(e) => setEditingCustomer({ ...editingCustomer, phone: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="(555) 123-4567"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                <textarea
+                  value={editingCustomer.address}
+                  onChange={(e) => setEditingCustomer({ ...editingCustomer, address: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  rows="2"
+                  placeholder="123 Main St, City, State"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea
+                  value={editingCustomer.notes}
+                  onChange={(e) => setEditingCustomer({ ...editingCustomer, notes: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  rows="3"
+                  placeholder="Additional information..."
+                />
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (currentView === 'detail' && selectedCustomer) {
+        return (
+          <div className="min-h-screen bg-gray-50">
+            <ConfirmDialog />
+            
+            <div className="bg-blue-600 text-white p-4 flex items-center justify-between">
+              <button onClick={() => { setSelectedCustomer(null); setCurrentView('list'); setCustomerView('jobs'); }}>
+                <X className="w-6 h-6" />
+              </button>
+              <h1 className="text-lg font-semibold truncate flex-1 mx-4">{selectedCustomer.name}</h1>
+              <button onClick={() => { setEditingCustomer(selectedCustomer); setCurrentView('edit'); }}>
+                <Settings className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="flex bg-white border-b">
+              <button
+                onClick={() => setCustomerView('jobs')}
+                className={`flex-1 py-3 font-medium ${customerView === 'jobs' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
+              >
+                Jobs
+              </button>
+              <button
+                onClick={() => setCustomerView('keys')}
+                className={`flex-1 py-3 font-medium ${customerView === 'keys' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
+              >
+                Key Record
+              </button>
+            </div>
+
+            <div className="p-4">
+              <div className="bg-white rounded-lg p-4 mb-4 shadow">
+                <div className="space-y-2">
+                  {selectedCustomer.phone && (
+                    <div className="flex items-center text-gray-700">
+                      <span className="font-medium w-20">Phone:</span>
+                      <span>{selectedCustomer.phone}</span>
+                    </div>
+                  )}
+                  {selectedCustomer.address && (
+                    <div className="flex items-start text-gray-700">
+                      <span className="font-medium w-20">Address:</span>
+                      <span className="flex-1">{selectedCustomer.address}</span>
+                    </div>
+                  )}
+                  {selectedCustomer.notes && (
+                    <div className="flex items-start text-gray-700">
+                      <span className="font-medium w-20">Notes:</span>
+                      <span className="flex-1">{selectedCustomer.notes}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {customerView === 'jobs' ? (
+                <>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold text-gray-800">Jobs</h2>
+                    <button
+                      onClick={addJob}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Job
+                    </button>
+                  </div>
+
+                  {selectedCustomer.jobs.length === 0 ? (
+                    <div className="bg-white rounded-lg p-8 text-center text-gray-500">
+                      <Key className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>No jobs recorded yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {selectedCustomer.jobs.map(job => {
+                        const jobKeys = job.keys || [];
+                        const isExpanded = expandedJob === job.id;
+                        
+                        return (
+                          <div key={job.id} className="bg-white rounded-lg shadow">
+                            <div 
+                              onClick={() => setExpandedJob(isExpanded ? null : job.id)}
+                              className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-sm font-medium text-gray-700">{job.date}</span>
+                                    {(job.address || job.city) && (
+                                      <span className="text-sm text-gray-500">
+                                        • {job.address}{job.address && job.city ? ', ' : ''}{job.city}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-3 text-sm text-gray-600">
+                                    <div className="flex items-center gap-1">
+                                      <Key className="w-4 h-4" />
+                                      <span>{jobKeys.length} {jobKeys.length === 1 ? 'key' : 'keys'}</span>
+                                    </div>
+                                    {job.notes && (
+                                      <span className="text-gray-400">Has notes</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="text-gray-400">
+                                  {isExpanded ? '▼' : '▶'}
+                                </div>
+                              </div>
+                            </div>
+
+                            {isExpanded && (
+                              <div className="border-t p-4 bg-gray-50">
+                                <div className="flex justify-end mb-3">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      deleteJob(job.id);
+                                    }}
+                                    className="text-red-600 hover:text-red-800 font-semibold text-sm px-3 py-1 bg-red-100 rounded"
+                                  >
+                                    Delete Job
+                                  </button>
+                                </div>
+
+                                <div className="space-y-3 mb-4">
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">Street Address</label>
+                                    <input
+                                      type="text"
+                                      value={job.address || ''}
+                                      onChange={(e) => updateJob(job.id, 'address', e.target.value)}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+                                      placeholder="123 Main St"
+                                    />
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <label className="block text-xs font-medium text-gray-600 mb-1">City</label>
+                                      <input
+                                        type="text"
+                                        value={job.city || ''}
+                                        onChange={(e) => updateJob(job.id, 'city', e.target.value)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+                                        placeholder="City"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs font-medium text-gray-600 mb-1">ZIP Code</label>
+                                      <input
+                                        type="text"
+                                        value={job.zip || ''}
+                                        onChange={(e) => updateJob(job.id, 'zip', e.target.value)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+                                        placeholder="ZIP"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <label className="block text-xs font-medium text-gray-600 mb-1">Onsite Contact</label>
+                                      <input
+                                        type="text"
+                                        value={job.onsiteContact || ''}
+                                        onChange={(e) => updateJob(job.id, 'onsiteContact', e.target.value)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+                                        placeholder="Contact name"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs font-medium text-gray-600 mb-1">Contact Phone</label>
+                                      <input
+                                        type="tel"
+                                        value={job.onsitePhone || ''}
+                                        onChange={(e) => updateJob(job.id, 'onsitePhone', e.target.value)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+                                        placeholder="Phone number"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">Job Notes</label>
+                                    <textarea
+                                      value={job.notes || ''}
+                                      onChange={(e) => updateJob(job.id, 'notes', e.target.value)}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+                                      rows="2"
+                                      placeholder="General job information..."
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="border-t border-gray-300 pt-3">
+                                  <div className="flex items-center justify-between mb-3">
+                                    <h3 className="font-semibold text-gray-700 text-sm">Keys ({jobKeys.length})</h3>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        addKeyToJob(job.id);
+                                      }}
+                                      className="bg-blue-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1 hover:bg-blue-700"
+                                    >
+                                      <Plus className="w-3 h-3" />
+                                      Add Key
+                                    </button>
+                                  </div>
+
+                                  {jobKeys.length === 0 ? (
+                                    <div className="text-center py-4 text-gray-400 text-sm">
+                                      No keys added yet
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-3">
+                                      {jobKeys.map(key => (
+                                        <div key={key.id} className="bg-white rounded p-3 space-y-2 border border-gray-200">
+                                          <div className="flex justify-between items-start">
+                                            <div className="flex-1 grid grid-cols-2 gap-2">
+                                              <div>
+                                                <label className="block text-xs font-medium text-gray-600 mb-1">Key Type</label>
+                                                <select
+                                                  value={key.keyType}
+                                                  onChange={(e) => updateKey(job.id, key.id, 'keyType', e.target.value)}
+                                                  onClick={(e) => e.stopPropagation()}
+                                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500"
+                                                >
+                                                  <option>Change Key</option>
+                                                  <option>Master Key</option>
+                                                  <option>Grand Master Key</option>
+                                                  <option>Great Grand Master Key</option>
+                                                </select>
+                                              </div>
+                                              <div>
+                                                <label className="block text-xs font-medium text-gray-600 mb-1">Quantity</label>
+                                                <input
+                                                  type="number"
+                                                  min="1"
+                                                  value={key.quantity}
+                                                  onChange={(e) => updateKey(job.id, key.id, 'quantity', parseInt(e.target.value) || 1)}
+                                                  onClick={(e) => e.stopPropagation()}
+                                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500"
+                                                />
+                                              </div>
+                                            </div>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                deleteKey(job.id, key.id);
+                                              }}
+                                              className="ml-2 text-red-500 hover:text-red-700"
+                                            >
+                                              <X className="w-4 h-4" />
+                                            </button>
+                                          </div>
+
+                                          <div>
+                                            <label className="block text-xs font-medium text-gray-600 mb-1">Keyway</label>
+                                            <input
+                                              type="text"
+                                              value={key.keyway}
+                                              onChange={(e) => updateKey(job.id, key.id, 'keyway', e.target.value)}
+                                              onClick={(e) => e.stopPropagation()}
+                                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500"
+                                              placeholder="e.g., SC1, KW1"
+                                            />
+                                          </div>
+
+                                          <div>
+                                            <label className="block text-xs font-medium text-gray-600 mb-1">Site/Location</label>
+                                            <input
+                                              type="text"
+                                              value={key.site || ''}
+                                              onChange={(e) => updateKey(job.id, key.id, 'site', e.target.value)}
+                                              onClick={(e) => e.stopPropagation()}
+                                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500"
+                                              placeholder="e.g., Building A, Room 101"
+                                            />
+                                          </div>
+
+                                          <div className="grid grid-cols-3 gap-2">
+                                            <div className="col-span-2">
+                                              <label className="block text-xs font-medium text-gray-600 mb-1">Bitting Code</label>
+                                              <input
+                                                type="text"
+                                                value={key.bitting || ''}
+                                                onChange={(e) => updateKey(job.id, key.id, 'bitting', e.target.value)}
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="w-full px-2 py-1 border border-gray-300 rounded font-mono text-xs focus:ring-2 focus:ring-blue-500"
+                                                placeholder="e.g., 123456"
+                                              />
+                                            </div>
+                                            <div>
+                                              <label className="block text-xs font-medium text-gray-600 mb-1">Tag</label>
+                                              <input
+                                                type="text"
+                                                value={key.tag || ''}
+                                                onChange={(e) => updateKey(job.id, key.id, 'tag', e.target.value)}
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500"
+                                                placeholder="A1"
+                                              />
+                                            </div>
+                                          </div>
+
+                                          <div>
+                                            <label className="block text-xs font-medium text-gray-600 mb-1">Key Notes</label>
+                                            <input
+                                              type="text"
+                                              value={key.notes}
+                                              onChange={(e) => updateKey(job.id, key.id, 'notes', e.target.value)}
+                                              onClick={(e) => e.stopPropagation()}
+                                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500"
+                                              placeholder="Additional details..."
+                                            />
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => deleteCustomer(selectedCustomer.id)}
+                    className="w-full mt-6 py-3 border-2 border-red-500 text-red-500 rounded-lg font-medium hover:bg-red-50"
+                  >
+                    Delete Customer
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="mb-4 space-y-3">
+                    <div className="flex gap-2">
+                      <select
+                        value={keySortBy}
+                        onChange={(e) => setKeySortBy(e.target.value)}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="keyway">Group by Keyway</option>
+                        <option value="site">Group by Site</option>
+                      </select>
+                      <select
+                        value={keyFilter.keyType}
+                        onChange={(e) => setKeyFilter({ ...keyFilter, keyType: e.target.value })}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="all">All Key Types</option>
+                        <option value="Change Key">Change Key</option>
+                        <option value="Master Key">Master Key</option>
+                        <option value="Grand Master Key">Grand Master Key</option>
+                        <option value="Great Grand Master Key">Great Grand Master Key</option>
+                      </select>
+                    </div>
+                    <input
+                      type="text"
+                      value={keyFilter.search}
+                      onChange={(e) => setKeyFilter({ ...keyFilter, search: e.target.value })}
+                      placeholder="Search location, site, or bitting..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {(() => {
+                    const allKeys = selectedCustomer.jobs.flatMap(job => 
+                      (job.keys || []).map(key => ({
+                        ...key,
+                        date: job.date,
+                        address: job.address,
+                        city: job.city,
+                        zip: job.zip,
+                        jobNotes: job.notes,
+                        jobId: job.id
+                      }))
+                    );
+
+                    const filteredKeys = allKeys.filter(key => {
+                      const matchesType = keyFilter.keyType === 'all' || key.keyType === keyFilter.keyType;
+                      const searchLower = keyFilter.search.toLowerCase();
+                      const matchesSearch = !keyFilter.search || 
+                        (key.address || '').toLowerCase().includes(searchLower) ||
+                        (key.city || '').toLowerCase().includes(searchLower) ||
+                        (key.zip || '').toLowerCase().includes(searchLower) ||
+                        (key.site || '').toLowerCase().includes(searchLower) ||
+                        (key.bitting || '').toLowerCase().includes(searchLower) ||
+                        (key.tag || '').toLowerCase().includes(searchLower) ||
+                        (key.keyway || '').toLowerCase().includes(searchLower) ||
+                        (key.notes || '').toLowerCase().includes(searchLower);
+                      return matchesType && matchesSearch;
+                    });
+
+                    const groupBy = keySortBy === 'site' ? 'site' : 'keyway';
+                    const keysByGroup = filteredKeys.reduce((acc, key) => {
+                      const groupKey = key[groupBy] || 'Unspecified';
+                      if (!acc[groupKey]) acc[groupKey] = [];
+                      acc[groupKey].push(key);
+                      return acc;
+                    }, {});
+
+                    const groups = Object.keys(keysByGroup).sort();
+
+                    if (groups.length === 0) {
+                      return (
+                        <div className="bg-white rounded-lg p-8 text-center text-gray-500">
+                          <Key className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                          <p>No keys found</p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-4">
+                        {groups.map(group => (
+                          <div key={group} className="bg-white rounded-lg shadow overflow-hidden">
+                            <div className="bg-blue-600 text-white px-4 py-2 font-semibold">
+                              {group} ({keysByGroup[group].length})
+                            </div>
+                            <div className="divide-y">
+                              {keysByGroup[group].map((key, idx) => (
+                                <div key={idx} className="p-3 hover:bg-gray-50">
+                                  <div className="flex justify-between items-start mb-2">
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-sm font-medium text-gray-700">{key.date}</span>
+                                        {(key.address || key.city) && (
+                                          <span className="text-sm text-gray-500">
+                                            • {key.address}{key.address && key.city ? ', ' : ''}{key.city}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="text-xs text-gray-600 space-y-1">
+                                        <div>
+                                          <span className="font-medium">{key.keyType}</span>
+                                          {key.quantity > 1 && <span> (×{key.quantity})</span>}
+                                        </div>
+                                        {keySortBy === 'site' && key.keyway && (
+                                          <div className="text-gray-500">Keyway: {key.keyway}</div>
+                                        )}
+                                        {keySortBy === 'keyway' && key.site && (
+                                          <div className="text-gray-500">Site: {key.site}</div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  {key.bitting && (
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <div className="bg-gray-100 rounded px-2 py-1 font-mono text-sm text-gray-800 flex-1">
+                                        {key.bitting}
+                                      </div>
+                                      {key.tag && (
+                                        <div className="bg-blue-100 text-blue-800 rounded px-2 py-1 text-xs font-medium">
+                                          {key.tag}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                  {key.notes && (
+                                    <div className="text-xs text-gray-600 mt-1">
+                                      <span className="font-medium">Note:</span> {key.notes}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-h-screen bg-gray-50">
+          <ConfirmDialog />
+          
+          <div className="bg-blue-600 text-white p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-xl font-bold">Locksmith Pro</h1>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 bg-blue-700 px-3 py-2 rounded-lg hover:bg-blue-800"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="text-sm">Lock</span>
+              </button>
+            </div>
+
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search customers..."
+                className="w-full pl-10 pr-4 py-2 rounded-lg text-gray-800"
+              />
+            </div>
+          </div>
+
+          <div className="p-4">
+            {filteredCustomers.length === 0 ? (
+              <div className="bg-white rounded-lg p-8 text-center text-gray-500">
+                <User className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                <p className="mb-2">
+                  {customers.length === 0 ? 'No customers yet' : 'No matching customers'}
+                </p>
+                <p className="text-sm">
+                  {customers.length === 0 ? 'Add your first customer to get started' : 'Try a different search term'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredCustomers.map(customer => (
+                  <div
+                    key={customer.id}
+                    onClick={() => { setSelectedCustomer(customer); setCurrentView('detail'); }}
+                    className="bg-white rounded-lg p-4 shadow hover:shadow-md transition-shadow cursor-pointer"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-800">{customer.name}</h3>
+                        {customer.phone && (
+                          <p className="text-sm text-gray-600 mt-1">{customer.phone}</p>
+                        )}
+                        {customer.address && (
+                          <p className="text-sm text-gray-500 mt-1">{customer.address}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-gray-500">
+                        <Key className="w-4 h-4" />
+                        <span className="text-sm font-medium">{customer.jobs.length}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={addCustomer}
+            className="fixed bottom-6 right-6 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-6 h-6" />
+          </button>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<LocksmithApp />, document.getElementById('root'));
+  </script>
+</body>
+</html>
