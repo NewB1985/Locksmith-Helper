@@ -1,0 +1,936 @@
+import React, { useState, useEffect } from 'react';
+import { Lock, Plus, Search, Key, User, Settings, LogOut, Eye, EyeOff, ChevronRight, ChevronDown, Trash2, Edit2, Save, X, Phone, MapPin, FileText, Calendar, Hash, Filter, ArrowUpDown, Building, AlertCircle, CheckCircle } from 'lucide-react';
+
+/* ── tiny encrypt/decrypt (XOR-style obfuscation, not real crypto) ── */
+const encrypt = (text, password) => {
+  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify({ data: text, key: password }))));
+  return encoded;
+};
+const decrypt = (encoded, password) => {
+  try {
+    const decoded = JSON.parse(decodeURIComponent(escape(atob(encoded))));
+    if (decoded.key === password) return decoded.data;
+    return null;
+  } catch { return null; }
+};
+
+/* ── styles injected once ── */
+const STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Barlow:wght@300;400;500;600&display=swap');
+  :root {
+    --bg: #0f1117;
+    --surface: #181c26;
+    --surface2: #1f2435;
+    --border: #2a3045;
+    --accent: #f59e0b;
+    --accent-dim: rgba(245,158,11,0.15);
+    --text: #e8eaf0;
+    --text-muted: #7b8299;
+    --danger: #ef4444;
+    --success: #22c55e;
+    --blue: #3b82f6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); }
+  .app { min-height: 100vh; background: var(--bg); color: var(--text); font-family: 'Barlow', sans-serif; }
+  .condensed { font-family: 'Barlow Condensed', sans-serif; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* login */
+  .login-bg { min-height:100vh; background: linear-gradient(135deg,#0a0e1a 0%,#0f1a2e 50%,#0a1218 100%); display:flex; align-items:center; justify-content:center; padding:1rem; position:relative; overflow:hidden; }
+  .login-bg::before { content:''; position:absolute; inset:0; background: repeating-linear-gradient(0deg,transparent,transparent 60px,rgba(245,158,11,0.02) 60px,rgba(245,158,11,0.02) 61px), repeating-linear-gradient(90deg,transparent,transparent 60px,rgba(245,158,11,0.02) 60px,rgba(245,158,11,0.02) 61px); }
+  .login-card { background: var(--surface); border:1px solid var(--border); border-radius:12px; padding:2.5rem; width:100%; max-width:420px; position:relative; z-index:1; box-shadow:0 30px 80px rgba(0,0,0,0.6); }
+  .login-icon { width:64px; height:64px; background:var(--accent); border-radius:12px; display:flex; align-items:center; justify-content:center; margin:0 auto 1.5rem; }
+  .login-title { font-family:'Barlow Condensed',sans-serif; font-size:2rem; font-weight:700; text-align:center; letter-spacing:1px; color:var(--text); }
+  .login-sub { text-align:center; color:var(--text-muted); font-size:.875rem; margin:.25rem 0 1.75rem; }
+  .input-wrap { position:relative; }
+  .input-wrap input { width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:.75rem 2.75rem .75rem 1rem; font-family:'Barlow',sans-serif; font-size:1rem; transition:border-color .15s; outline:none; }
+  .input-wrap input:focus { border-color:var(--accent); }
+  .input-wrap .eye-btn { position:absolute; right:.75rem; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--text-muted); cursor:pointer; padding:.25rem; }
+  .label { display:block; font-size:.8125rem; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:var(--text-muted); margin-bottom:.5rem; }
+  .btn-primary { width:100%; background:var(--accent); color:#0a0a0a; border:none; border-radius:8px; padding:.875rem; font-family:'Barlow Condensed',sans-serif; font-size:1.1rem; font-weight:700; letter-spacing:1px; text-transform:uppercase; cursor:pointer; transition:opacity .15s; margin-top:.5rem; }
+  .btn-primary:hover { opacity:.9; }
+  .error-box { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:8px; padding:.75rem 1rem; color:#fca5a5; font-size:.875rem; margin-bottom:1rem; display:flex; gap:.5rem; align-items:center; }
+  .login-note { text-align:center; color:var(--text-muted); font-size:.75rem; margin-top:1.25rem; }
+
+  /* layout */
+  .shell { display:flex; min-height:100vh; }
+  .sidebar { width:220px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; flex-shrink:0; }
+  .sidebar-logo { padding:1.25rem 1rem; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:.625rem; }
+  .sidebar-logo-icon { width:32px; height:32px; background:var(--accent); border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .sidebar-brand { font-family:'Barlow Condensed',sans-serif; font-size:1.25rem; font-weight:700; letter-spacing:.5px; }
+  .sidebar-brand span { color:var(--accent); }
+  .sidebar-nav { flex:1; padding:.75rem 0; }
+  .nav-item { display:flex; align-items:center; gap:.625rem; padding:.625rem 1rem; font-size:.9375rem; color:var(--text-muted); cursor:pointer; transition:all .12s; border-left:3px solid transparent; user-select:none; }
+  .nav-item:hover { color:var(--text); background:var(--surface2); }
+  .nav-item.active { color:var(--accent); background:var(--accent-dim); border-left-color:var(--accent); }
+  .sidebar-footer { padding:.75rem; border-top:1px solid var(--border); }
+  .logout-btn { display:flex; align-items:center; gap:.5rem; padding:.5rem .75rem; color:var(--text-muted); cursor:pointer; border-radius:6px; font-size:.875rem; transition:all .12s; background:none; border:none; width:100%; }
+  .logout-btn:hover { color:var(--danger); background:rgba(239,68,68,0.08); }
+  .main { flex:1; overflow:hidden; display:flex; flex-direction:column; }
+  .topbar { padding:1rem 1.5rem; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:1rem; background:var(--surface); flex-shrink:0; }
+  .topbar-title { font-family:'Barlow Condensed',sans-serif; font-size:1.5rem; font-weight:700; letter-spacing:.5px; flex:1; }
+  .content { flex:1; overflow-y:auto; padding:1.5rem; }
+
+  /* search */
+  .search-wrap { position:relative; flex:1; max-width:340px; }
+  .search-wrap input { width:100%; background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:.5rem 1rem .5rem 2.25rem; font-family:'Barlow',sans-serif; font-size:.9375rem; outline:none; transition:border-color .15s; }
+  .search-wrap input:focus { border-color:var(--accent); }
+  .search-wrap svg { position:absolute; left:.625rem; top:50%; transform:translateY(-50%); color:var(--text-muted); }
+
+  /* buttons */
+  .btn { display:inline-flex; align-items:center; gap:.375rem; border:none; cursor:pointer; font-family:'Barlow',sans-serif; font-weight:500; border-radius:7px; transition:all .12s; white-space:nowrap; }
+  .btn-add { background:var(--accent); color:#0a0a0a; padding:.5rem 1rem; font-size:.9rem; font-weight:600; }
+  .btn-add:hover { opacity:.88; }
+  .btn-ghost { background:transparent; color:var(--text-muted); padding:.375rem .625rem; font-size:.875rem; border:1px solid var(--border); }
+  .btn-ghost:hover { color:var(--text); border-color:var(--text-muted); }
+  .btn-danger { background:rgba(239,68,68,0.1); color:#fca5a5; border:1px solid rgba(239,68,68,0.25); padding:.375rem .75rem; font-size:.875rem; }
+  .btn-danger:hover { background:rgba(239,68,68,0.2); }
+  .btn-save { background:var(--success); color:#0a0a0a; padding:.5rem 1rem; font-size:.9rem; font-weight:600; }
+  .btn-save:hover { opacity:.88; }
+  .btn-sm { padding:.3rem .6rem; font-size:.8125rem; }
+
+  /* customer list */
+  .customer-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1rem 1.25rem; cursor:pointer; transition:all .15s; display:flex; align-items:center; gap:1rem; }
+  .customer-card:hover { border-color:var(--accent); background:var(--surface2); }
+  .customer-avatar { width:42px; height:42px; background:var(--accent-dim); border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--accent); font-family:'Barlow Condensed',sans-serif; font-size:1.1rem; font-weight:700; }
+  .customer-info { flex:1; min-width:0; }
+  .customer-name { font-weight:600; font-size:1rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .customer-meta { font-size:.8125rem; color:var(--text-muted); margin-top:.2rem; display:flex; gap:.75rem; flex-wrap:wrap; }
+  .badge { display:inline-flex; align-items:center; gap:.25rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:.15rem .5rem; font-size:.75rem; color:var(--text-muted); }
+  .badge-accent { background:var(--accent-dim); border-color:rgba(245,158,11,0.3); color:var(--accent); }
+  .empty-state { text-align:center; padding:4rem 1rem; color:var(--text-muted); }
+  .empty-state svg { margin:0 auto .75rem; opacity:.3; }
+  .empty-state h3 { font-family:'Barlow Condensed',sans-serif; font-size:1.25rem; color:var(--text); margin-bottom:.375rem; }
+  .grid-2 { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:.75rem; }
+
+  /* customer detail */
+  .back-btn { display:flex; align-items:center; gap:.375rem; color:var(--text-muted); cursor:pointer; font-size:.875rem; transition:color .12s; background:none; border:none; font-family:'Barlow',sans-serif; padding:0; }
+  .back-btn:hover { color:var(--accent); }
+  .detail-header { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1.25rem 1.5rem; margin-bottom:1rem; }
+  .detail-name { font-family:'Barlow Condensed',sans-serif; font-size:1.75rem; font-weight:700; letter-spacing:.5px; }
+  .detail-meta { display:flex; flex-wrap:wrap; gap:1rem; margin-top:.625rem; }
+  .detail-meta-item { display:flex; align-items:center; gap:.375rem; font-size:.875rem; color:var(--text-muted); }
+  .tab-bar { display:flex; gap:.125rem; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:.25rem; margin-bottom:1rem; }
+  .tab { flex:1; padding:.5rem; text-align:center; font-size:.875rem; font-weight:500; border-radius:6px; cursor:pointer; transition:all .12s; color:var(--text-muted); border:none; background:none; font-family:'Barlow',sans-serif; }
+  .tab.active { background:var(--surface2); color:var(--accent); }
+
+  /* jobs */
+  .job-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow:hidden; margin-bottom:.75rem; }
+  .job-header { padding:1rem 1.25rem; display:flex; align-items:center; gap:.75rem; cursor:pointer; transition:background .12s; }
+  .job-header:hover { background:var(--surface2); }
+  .job-header-info { flex:1; min-width:0; }
+  .job-address { font-weight:600; font-size:.9375rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .job-date { font-size:.8rem; color:var(--text-muted); margin-top:.15rem; }
+  .job-body { padding:1rem 1.25rem; border-top:1px solid var(--border); background:var(--surface2); }
+
+  /* form */
+  .field-group { margin-bottom:1rem; }
+  .field-row { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+  .field-row-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:.75rem; }
+  .field-input { width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:7px; padding:.6rem .875rem; font-family:'Barlow',sans-serif; font-size:.9375rem; outline:none; transition:border-color .15s; }
+  .field-input:focus { border-color:var(--accent); }
+  .field-input::placeholder { color:var(--text-muted); }
+  .field-select { appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237b8299' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right .75rem center; padding-right:2.25rem; cursor:pointer; }
+  textarea.field-input { resize:vertical; min-height:72px; }
+
+  /* key table */
+  .key-table { width:100%; border-collapse:collapse; font-size:.85rem; }
+  .key-table th { text-align:left; padding:.5rem .625rem; font-size:.7rem; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:var(--text-muted); border-bottom:1px solid var(--border); white-space:nowrap; }
+  .key-table td { padding:.4rem .375rem; border-bottom:1px solid rgba(42,48,69,0.5); vertical-align:middle; }
+  .key-table tr:last-child td { border-bottom:none; }
+  .key-table .field-input { padding:.35rem .5rem; font-size:.8125rem; }
+  .key-type-badge { display:inline-block; padding:.2rem .5rem; border-radius:4px; font-size:.7rem; font-weight:600; text-transform:uppercase; letter-spacing:.4px; }
+  .kt-change { background:rgba(59,130,246,0.15); color:#93c5fd; }
+  .kt-master { background:rgba(245,158,11,0.15); color:#fcd34d; }
+  .kt-grand { background:rgba(168,85,247,0.2); color:#c4b5fd; }
+  .kt-great { background:rgba(34,197,94,0.15); color:#86efac; }
+  .kt-other { background:var(--surface2); color:var(--text-muted); }
+
+  /* keys aggregate view */
+  .key-row { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:.75rem 1rem; display:flex; align-items:center; gap:.75rem; margin-bottom:.5rem; }
+  .key-keyway { font-family:'Barlow Condensed',sans-serif; font-size:1.1rem; font-weight:700; min-width:80px; }
+  .key-details { flex:1; display:flex; flex-wrap:wrap; gap:.375rem .75rem; }
+  .kd-item { font-size:.8rem; color:var(--text-muted); }
+  .kd-item span { color:var(--text); }
+
+  /* settings */
+  .settings-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1.5rem; max-width:480px; margin-bottom:1rem; }
+  .settings-card h3 { font-family:'Barlow Condensed',sans-serif; font-size:1.2rem; font-weight:700; margin-bottom:1rem; letter-spacing:.5px; }
+
+  /* overlay */
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,0.65); display:flex; align-items:center; justify-content:center; z-index:50; padding:1rem; backdrop-filter:blur(2px); }
+  .dialog { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1.75rem; max-width:380px; width:100%; box-shadow:0 30px 60px rgba(0,0,0,0.5); }
+  .dialog p { color:var(--text); margin-bottom:1.5rem; line-height:1.5; }
+  .dialog-btns { display:flex; gap:.75rem; }
+  .dialog-btns button { flex:1; padding:.75rem; border-radius:8px; font-family:'Barlow',sans-serif; font-weight:600; font-size:.9375rem; cursor:pointer; border:none; }
+  .dialog-cancel { background:var(--surface2); color:var(--text); }
+  .dialog-cancel:hover { background:var(--border); }
+  .dialog-delete { background:var(--danger); color:#fff; }
+  .dialog-delete:hover { opacity:.88; }
+
+  /* section header */
+  .section-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:.875rem; }
+  .section-title { font-family:'Barlow Condensed',sans-serif; font-size:1.125rem; font-weight:700; letter-spacing:.5px; display:flex; align-items:center; gap:.5rem; }
+
+  /* filter bar */
+  .filter-bar { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; margin-bottom:1rem; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:.625rem .875rem; }
+
+  /* responsive */
+  @media(max-width:640px) {
+    .sidebar { display:none; }
+    .field-row, .field-row-3 { grid-template-columns:1fr; }
+  }
+`;
+
+/* ── helpers ── */
+const initials = name => name.trim().split(/\s+/).map(w=>w[0]).join('').toUpperCase().slice(0,2);
+const keyTypeClass = kt => {
+  if (!kt) return 'kt-other';
+  const v = kt.toLowerCase();
+  if (v.includes('change')) return 'kt-change';
+  if (v.includes('master')) return 'kt-master';
+  if (v.includes('grand master') || v.includes('gm')) return 'kt-grand';
+  if (v.includes('great')) return 'kt-great';
+  return 'kt-other';
+};
+
+const KEY_TYPES = ['Change Key', 'Master Key', 'Grand Master', 'Great Grand Master', 'Construction Key', 'Emergency Key', 'Other'];
+
+export default function LocksmithApp() {
+  /* ── auth state ── */
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+  const [hasPassword, setHasPassword] = useState(false);
+  const [loginError, setLoginError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+
+  /* ── data state ── */
+  const [customers, setCustomers] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  /* ── view state ── */
+  const [view, setView] = useState('customers');        // customers | keys | settings
+  const [subView, setSubView] = useState('list');       // list | detail | edit
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [editingCustomer, setEditingCustomer] = useState(null);
+  const [customerTab, setCustomerTab] = useState('jobs'); // jobs | info
+  const [expandedJob, setExpandedJob] = useState(null);
+  const [keyFilter, setKeyFilter] = useState({ type: 'all', search: '' });
+  const [keySortBy, setKeySortBy] = useState('keyway');
+  const [confirmDialog, setConfirmDialog] = useState(null);
+
+  /* ── auto-lock ── */
+  const [lastActivity, setLastActivity] = useState(Date.now());
+  const LOCK_MS = 5 * 60 * 1000;
+
+  /* inject styles once */
+  useEffect(() => {
+    const id = 'lsp-styles';
+    if (!document.getElementById(id)) {
+      const s = document.createElement('style');
+      s.id = id; s.textContent = STYLES;
+      document.head.appendChild(s);
+    }
+  }, []);
+
+  useEffect(() => {
+    setHasPassword(!!localStorage.getItem('locksmith_password'));
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const interval = setInterval(() => {
+      if (Date.now() - lastActivity > LOCK_MS) handleLogout();
+    }, 15000);
+    const reset = () => setLastActivity(Date.now());
+    window.addEventListener('pointerdown', reset);
+    window.addEventListener('keydown', reset);
+    return () => { clearInterval(interval); window.removeEventListener('pointerdown', reset); window.removeEventListener('keydown', reset); };
+  }, [isAuthenticated, lastActivity]);
+
+  useEffect(() => {
+    if (isAuthenticated && currentPassword) {
+      const stored = localStorage.getItem('locksmith_customers');
+      if (stored) {
+        const dec = decrypt(stored, currentPassword);
+        if (dec) setCustomers(JSON.parse(dec));
+      }
+    }
+  }, [isAuthenticated, currentPassword]);
+
+  /* ── persistence ── */
+  const persist = (list) => {
+    localStorage.setItem('locksmith_customers', encrypt(JSON.stringify(list), currentPassword));
+    setCustomers(list);
+  };
+
+  /* ── auth ── */
+  const handleLogin = () => {
+    if (!hasPassword) {
+      if (password.length < 6) { setLoginError('Password must be at least 6 characters'); return; }
+      localStorage.setItem('locksmith_password', encrypt('verified', password));
+      setCurrentPassword(password); setIsAuthenticated(true); setPassword('');
+    } else {
+      const v = decrypt(localStorage.getItem('locksmith_password'), password);
+      if (v === 'verified') { setCurrentPassword(password); setIsAuthenticated(true); setPassword(''); setLoginError(''); }
+      else setLoginError('Incorrect password');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false); setCurrentPassword(''); setPassword('');
+    setSelectedCustomer(null); setEditingCustomer(null);
+    setView('customers'); setSubView('list'); setExpandedJob(null);
+  };
+
+  /* ── customer CRUD ── */
+  const startNewCustomer = () => {
+    setEditingCustomer({ id: Date.now(), name: '', phone: '', address: '', notes: '', jobs: [] });
+    setSubView('edit');
+  };
+
+  const startEditCustomer = (c) => {
+    setEditingCustomer({ ...c, jobs: c.jobs ? [...c.jobs] : [] });
+    setSubView('edit');
+  };
+
+  const saveCustomer = () => {
+    if (!editingCustomer.name.trim()) return;
+    const updated = [...customers.filter(c => c.id !== editingCustomer.id), editingCustomer];
+    persist(updated);
+    setSubView('detail');
+    setSelectedCustomer(editingCustomer);
+    setEditingCustomer(null);
+  };
+
+  const cancelEdit = () => {
+    if (selectedCustomer) { setSubView('detail'); }
+    else { setSubView('list'); }
+    setEditingCustomer(null);
+  };
+
+  const deleteCustomer = (id) => {
+    setConfirmDialog({
+      message: 'Delete this customer and all their jobs? This cannot be undone.',
+      onConfirm: () => {
+        persist(customers.filter(c => c.id !== id));
+        setSelectedCustomer(null); setSubView('list'); setConfirmDialog(null);
+      },
+      onCancel: () => setConfirmDialog(null)
+    });
+  };
+
+  const openCustomer = (c) => {
+    setSelectedCustomer(c); setSubView('detail'); setCustomerTab('jobs'); setExpandedJob(null);
+  };
+
+  /* ── job CRUD ── */
+  const mutateCustomer = (customerId, fn) => {
+    const updated = customers.map(c => c.id === customerId ? fn(c) : c);
+    persist(updated);
+    const fresh = updated.find(c => c.id === customerId);
+    setSelectedCustomer(fresh);
+    return fresh;
+  };
+
+  const addJob = () => {
+    const job = {
+      id: Date.now(), date: new Date().toISOString().split('T')[0],
+      address: '', city: '', zip: '', notes: '', onsiteContact: '', onsitePhone: '', keys: []
+    };
+    mutateCustomer(selectedCustomer.id, c => ({ ...c, jobs: [...(c.jobs||[]), job] }));
+    setExpandedJob(job.id);
+  };
+
+  const updateJob = (jobId, field, value) => {
+    mutateCustomer(selectedCustomer.id, c => ({
+      ...c, jobs: c.jobs.map(j => j.id === jobId ? { ...j, [field]: value } : j)
+    }));
+  };
+
+  const deleteJob = (jobId) => {
+    setConfirmDialog({
+      message: 'Delete this job and all associated keys? This cannot be undone.',
+      onConfirm: () => {
+        mutateCustomer(selectedCustomer.id, c => ({ ...c, jobs: c.jobs.filter(j => j.id !== jobId) }));
+        setExpandedJob(null); setConfirmDialog(null);
+      },
+      onCancel: () => setConfirmDialog(null)
+    });
+  };
+
+  /* ── key CRUD ── */
+  const addKey = (jobId) => {
+    const k = { id: Date.now()+Math.random(), keyType: 'Change Key', keyway: '', site: '', bitting: '', tag: '', quantity: 1, notes: '' };
+    mutateCustomer(selectedCustomer.id, c => ({
+      ...c, jobs: c.jobs.map(j => j.id === jobId ? { ...j, keys: [...(j.keys||[]), k] } : j)
+    }));
+  };
+
+  const updateKey = (jobId, keyId, field, value) => {
+    mutateCustomer(selectedCustomer.id, c => ({
+      ...c, jobs: c.jobs.map(j => j.id === jobId ? {
+        ...j, keys: j.keys.map(k => k.id === keyId ? { ...k, [field]: value } : k)
+      } : j)
+    }));
+  };
+
+  const deleteKey = (jobId, keyId) => {
+    setConfirmDialog({
+      message: 'Delete this key record?',
+      onConfirm: () => {
+        mutateCustomer(selectedCustomer.id, c => ({
+          ...c, jobs: c.jobs.map(j => j.id === jobId ? { ...j, keys: j.keys.filter(k => k.id !== keyId) } : j)
+        }));
+        setConfirmDialog(null);
+      },
+      onCancel: () => setConfirmDialog(null)
+    });
+  };
+
+  /* ── aggregated keys for Keys view ── */
+  const allKeys = customers.flatMap(c =>
+    (c.jobs||[]).flatMap(j =>
+      (j.keys||[]).map(k => ({
+        ...k,
+        customerName: c.name, customerId: c.id,
+        jobDate: j.date, jobAddress: j.address, jobCity: j.city
+      }))
+    )
+  );
+
+  const filteredKeys = allKeys
+    .filter(k => {
+      const typeOk = keyFilter.type === 'all' || k.keyType === keyFilter.type;
+      const s = keyFilter.search.toLowerCase();
+      const searchOk = !s || k.keyway.toLowerCase().includes(s) || k.customerName.toLowerCase().includes(s) || k.bitting.toLowerCase().includes(s) || k.tag.toLowerCase().includes(s);
+      return typeOk && searchOk;
+    })
+    .sort((a, b) => {
+      if (keySortBy === 'keyway') return a.keyway.localeCompare(b.keyway);
+      if (keySortBy === 'type') return a.keyType.localeCompare(b.keyType);
+      if (keySortBy === 'customer') return a.customerName.localeCompare(b.customerName);
+      if (keySortBy === 'date') return b.jobDate.localeCompare(a.jobDate);
+      return 0;
+    });
+
+  const filteredCustomers = customers.filter(c =>
+    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (c.phone||'').includes(searchTerm) ||
+    (c.address||'').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  /* ── change password ── */
+  const [pwChange, setPwChange] = useState({ current: '', next: '', confirm: '', msg: '', ok: false });
+  const handleChangePassword = () => {
+    const v = decrypt(localStorage.getItem('locksmith_password'), pwChange.current);
+    if (v !== 'verified') { setPwChange(s=>({...s, msg:'Current password incorrect', ok:false})); return; }
+    if (pwChange.next.length < 6) { setPwChange(s=>({...s, msg:'New password must be 6+ characters', ok:false})); return; }
+    if (pwChange.next !== pwChange.confirm) { setPwChange(s=>({...s, msg:'Passwords do not match', ok:false})); return; }
+    // re-encrypt data with new password
+    const reEnc = encrypt(JSON.stringify(customers), pwChange.next);
+    localStorage.setItem('locksmith_customers', reEnc);
+    localStorage.setItem('locksmith_password', encrypt('verified', pwChange.next));
+    setCurrentPassword(pwChange.next);
+    setPwChange({ current:'', next:'', confirm:'', msg:'Password updated successfully!', ok:true });
+  };
+
+  /* ══════════════════════════════════════════
+     RENDER: Login Screen
+  ══════════════════════════════════════════ */
+  if (!isAuthenticated) {
+    return (
+      <div className="login-bg">
+        <div className="login-card">
+          <div className="login-icon">
+            <Lock size={28} color="#0a0a0a" />
+          </div>
+          <h1 className="login-title condensed">LOCKSMITH PRO</h1>
+          <p className="login-sub">
+            {hasPassword ? 'Enter your password to access records' : 'Create a master password to secure your data'}
+          </p>
+
+          {loginError && (
+            <div className="error-box">
+              <AlertCircle size={16} />
+              {loginError}
+            </div>
+          )}
+
+          <div className="field-group">
+            <label className="label">Password</label>
+            <div className="input-wrap">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                placeholder={hasPassword ? 'Enter master password' : 'Create password (min 6 chars)'}
+                autoFocus
+              />
+              <button className="eye-btn" type="button" onClick={() => setShowPassword(v=>!v)}>
+                {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}
+              </button>
+            </div>
+          </div>
+
+          <button className="btn-primary" onClick={handleLogin}>
+            {hasPassword ? 'Unlock Vault' : 'Create Vault & Continue'}
+          </button>
+          <p className="login-note">All records encrypted and stored locally on this device</p>
+        </div>
+      </div>
+    );
+  }
+
+  /* ══════════════════════════════════════════
+     RENDER: Main App
+  ══════════════════════════════════════════ */
+
+  /* title for topbar */
+  const topTitle = () => {
+    if (view === 'keys') return 'Key Records';
+    if (view === 'settings') return 'Settings';
+    if (view === 'customers') {
+      if (subView === 'edit') return editingCustomer?.name?.trim() ? editingCustomer.name : 'New Customer';
+      if (subView === 'detail' && selectedCustomer) return selectedCustomer.name;
+      return 'Customers';
+    }
+    return '';
+  };
+
+  return (
+    <div className="app">
+      <div className="shell">
+        {/* SIDEBAR */}
+        <aside className="sidebar">
+          <div className="sidebar-logo">
+            <div className="sidebar-logo-icon"><Lock size={18} color="#0a0a0a"/></div>
+            <div className="sidebar-brand condensed">LOCK<span>SMITH</span></div>
+          </div>
+          <nav className="sidebar-nav">
+            <div className={`nav-item${view==='customers'?' active':''}`} onClick={()=>{setView('customers');setSubView('list');setSelectedCustomer(null);}}>
+              <User size={16}/> Customers
+            </div>
+            <div className={`nav-item${view==='keys'?' active':''}`} onClick={()=>setView('keys')}>
+              <Key size={16}/> Key Records
+            </div>
+            <div className={`nav-item${view==='settings'?' active':''}`} onClick={()=>setView('settings')}>
+              <Settings size={16}/> Settings
+            </div>
+          </nav>
+          <div className="sidebar-footer">
+            <button className="logout-btn" onClick={handleLogout}>
+              <LogOut size={15}/> Lock &amp; Exit
+            </button>
+          </div>
+        </aside>
+
+        {/* MAIN */}
+        <div className="main">
+          {/* TOP BAR */}
+          <header className="topbar">
+            {view === 'customers' && subView !== 'list' && (
+              <button className="back-btn" onClick={() => {
+                if (subView === 'edit' && selectedCustomer) { setSubView('detail'); setEditingCustomer(null); }
+                else { setSubView('list'); setSelectedCustomer(null); setEditingCustomer(null); }
+              }}>
+                <ChevronRight size={14} style={{transform:'rotate(180deg)'}}/> Back
+              </button>
+            )}
+            <div className="topbar-title condensed">{topTitle()}</div>
+
+            {/* search on list */}
+            {view === 'customers' && subView === 'list' && (
+              <>
+                <div className="search-wrap">
+                  <Search size={14}/>
+                  <input value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="Search customers…"/>
+                </div>
+                <button className="btn btn-add" onClick={startNewCustomer}><Plus size={15}/> Add Customer</button>
+              </>
+            )}
+
+            {/* detail actions */}
+            {view === 'customers' && subView === 'detail' && selectedCustomer && (
+              <div style={{display:'flex',gap:'.5rem'}}>
+                <button className="btn btn-ghost btn-sm" onClick={()=>startEditCustomer(selectedCustomer)}><Edit2 size={14}/> Edit</button>
+                <button className="btn btn-danger btn-sm" onClick={()=>deleteCustomer(selectedCustomer.id)}><Trash2 size={14}/> Delete</button>
+              </div>
+            )}
+
+            {/* edit actions */}
+            {view === 'customers' && subView === 'edit' && (
+              <div style={{display:'flex',gap:'.5rem'}}>
+                <button className="btn btn-ghost btn-sm" onClick={cancelEdit}><X size={14}/> Cancel</button>
+                <button className="btn btn-save btn-sm" onClick={saveCustomer} disabled={!editingCustomer?.name?.trim()}><Save size={14}/> Save</button>
+              </div>
+            )}
+          </header>
+
+          {/* CONTENT */}
+          <div className="content">
+
+            {/* ─── CUSTOMERS LIST ─── */}
+            {view === 'customers' && subView === 'list' && (
+              filteredCustomers.length === 0 ? (
+                <div className="empty-state">
+                  <User size={48}/>
+                  <h3>{searchTerm ? 'No Results' : 'No Customers Yet'}</h3>
+                  <p style={{fontSize:'.875rem'}}>{searchTerm ? 'Try a different search' : 'Add your first customer to get started'}</p>
+                </div>
+              ) : (
+                <div className="grid-2">
+                  {filteredCustomers.map(c => (
+                    <div key={c.id} className="customer-card" onClick={()=>openCustomer(c)}>
+                      <div className="customer-avatar">{initials(c.name)||'?'}</div>
+                      <div className="customer-info">
+                        <div className="customer-name">{c.name}</div>
+                        <div className="customer-meta">
+                          {c.phone && <span><Phone size={11} style={{verticalAlign:'middle'}}/> {c.phone}</span>}
+                          {c.address && <span><MapPin size={11} style={{verticalAlign:'middle'}}/> {c.address}</span>}
+                        </div>
+                      </div>
+                      <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:'.25rem',flexShrink:0}}>
+                        <span className="badge badge-accent"><FileText size={11}/> {(c.jobs||[]).length} job{(c.jobs||[]).length!==1?'s':''}</span>
+                        <span className="badge"><Key size={11}/> {(c.jobs||[]).reduce((s,j)=>s+(j.keys||[]).length,0)} keys</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            )}
+
+            {/* ─── EDIT CUSTOMER ─── */}
+            {view === 'customers' && subView === 'edit' && editingCustomer && (
+              <div style={{maxWidth:560}}>
+                <div className="field-group">
+                  <label className="label">Customer Name *</label>
+                  <input className="field-input" value={editingCustomer.name} onChange={e=>setEditingCustomer(s=>({...s,name:e.target.value}))} placeholder="Full name or company name"/>
+                </div>
+                <div className="field-row">
+                  <div className="field-group">
+                    <label className="label">Phone</label>
+                    <input className="field-input" value={editingCustomer.phone||''} onChange={e=>setEditingCustomer(s=>({...s,phone:e.target.value}))} placeholder="(555) 555-0100"/>
+                  </div>
+                  <div className="field-group">
+                    <label className="label">Address</label>
+                    <input className="field-input" value={editingCustomer.address||''} onChange={e=>setEditingCustomer(s=>({...s,address:e.target.value}))} placeholder="Street address"/>
+                  </div>
+                </div>
+                <div className="field-group">
+                  <label className="label">Notes</label>
+                  <textarea className="field-input" value={editingCustomer.notes||''} onChange={e=>setEditingCustomer(s=>({...s,notes:e.target.value}))} placeholder="Any notes about this customer…"/>
+                </div>
+              </div>
+            )}
+
+            {/* ─── CUSTOMER DETAIL ─── */}
+            {view === 'customers' && subView === 'detail' && selectedCustomer && (
+              <div>
+                {/* header card */}
+                <div className="detail-header">
+                  <div style={{display:'flex',alignItems:'center',gap:'1rem'}}>
+                    <div className="customer-avatar" style={{width:52,height:52,fontSize:'1.3rem'}}>{initials(selectedCustomer.name)||'?'}</div>
+                    <div>
+                      <div className="detail-name">{selectedCustomer.name}</div>
+                      <div className="detail-meta">
+                        {selectedCustomer.phone && <div className="detail-meta-item"><Phone size={13}/>{selectedCustomer.phone}</div>}
+                        {selectedCustomer.address && <div className="detail-meta-item"><MapPin size={13}/>{selectedCustomer.address}</div>}
+                        <div className="detail-meta-item">
+                          <span className="badge badge-accent"><FileText size={11}/> {(selectedCustomer.jobs||[]).length} jobs</span>
+                          <span className="badge" style={{marginLeft:'.25rem'}}><Key size={11}/> {(selectedCustomer.jobs||[]).reduce((s,j)=>s+(j.keys||[]).length,0)} keys</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* tabs */}
+                <div className="tab-bar">
+                  <button className={`tab${customerTab==='jobs'?' active':''}`} onClick={()=>setCustomerTab('jobs')}>Jobs &amp; Keys</button>
+                  <button className={`tab${customerTab==='info'?' active':''}`} onClick={()=>setCustomerTab('info')}>Customer Info</button>
+                </div>
+
+                {/* JOBS TAB */}
+                {customerTab === 'jobs' && (
+                  <div>
+                    <div className="section-hdr">
+                      <div className="section-title condensed"><Calendar size={16}/> Jobs</div>
+                      <button className="btn btn-add btn-sm" onClick={addJob}><Plus size={14}/> New Job</button>
+                    </div>
+
+                    {(!selectedCustomer.jobs || selectedCustomer.jobs.length === 0) && (
+                      <div className="empty-state" style={{padding:'2.5rem 1rem'}}>
+                        <Building size={36}/>
+                        <h3>No Jobs</h3>
+                        <p style={{fontSize:'.8125rem'}}>Add a job to start tracking key records</p>
+                      </div>
+                    )}
+
+                    {(selectedCustomer.jobs||[]).map(job => (
+                      <div key={job.id} className="job-card">
+                        <div className="job-header" onClick={()=>setExpandedJob(expandedJob===job.id?null:job.id)}>
+                          {expandedJob===job.id ? <ChevronDown size={16} color="var(--accent)"/> : <ChevronRight size={16} color="var(--text-muted)"/>}
+                          <div className="job-header-info">
+                            <div className="job-address">{job.address||'(no address)'}{job.city?`, ${job.city}`:''}</div>
+                            <div className="job-date"><Calendar size={11} style={{verticalAlign:'middle'}}/> {job.date} &nbsp;·&nbsp; <Key size={11} style={{verticalAlign:'middle'}}/> {(job.keys||[]).length} key{(job.keys||[]).length!==1?'s':''}</div>
+                          </div>
+                          <button className="btn btn-danger btn-sm" onClick={e=>{e.stopPropagation();deleteJob(job.id);}}>
+                            <Trash2 size={13}/>
+                          </button>
+                        </div>
+
+                        {expandedJob === job.id && (
+                          <div className="job-body">
+                            {/* job fields */}
+                            <div className="field-row-3" style={{marginBottom:'.75rem'}}>
+                              <div>
+                                <label className="label">Date</label>
+                                <input type="date" className="field-input" value={job.date} onChange={e=>updateJob(job.id,'date',e.target.value)}/>
+                              </div>
+                              <div>
+                                <label className="label">City</label>
+                                <input className="field-input" value={job.city||''} onChange={e=>updateJob(job.id,'city',e.target.value)} placeholder="City"/>
+                              </div>
+                              <div>
+                                <label className="label">Zip</label>
+                                <input className="field-input" value={job.zip||''} onChange={e=>updateJob(job.id,'zip',e.target.value)} placeholder="12345"/>
+                              </div>
+                            </div>
+                            <div className="field-row" style={{marginBottom:'.75rem'}}>
+                              <div>
+                                <label className="label">Job Address</label>
+                                <input className="field-input" value={job.address||''} onChange={e=>updateJob(job.id,'address',e.target.value)} placeholder="Street address"/>
+                              </div>
+                              <div>
+                                <label className="label">On-site Contact</label>
+                                <input className="field-input" value={job.onsiteContact||''} onChange={e=>updateJob(job.id,'onsiteContact',e.target.value)} placeholder="Contact name"/>
+                              </div>
+                            </div>
+                            <div className="field-row" style={{marginBottom:'.75rem'}}>
+                              <div>
+                                <label className="label">On-site Phone</label>
+                                <input className="field-input" value={job.onsitePhone||''} onChange={e=>updateJob(job.id,'onsitePhone',e.target.value)} placeholder="(555) 555-0100"/>
+                              </div>
+                              <div>
+                                <label className="label">Notes</label>
+                                <input className="field-input" value={job.notes||''} onChange={e=>updateJob(job.id,'notes',e.target.value)} placeholder="Job notes"/>
+                              </div>
+                            </div>
+
+                            {/* keys table */}
+                            <div className="section-hdr" style={{marginTop:'1rem'}}>
+                              <div className="section-title condensed" style={{fontSize:'1rem'}}><Key size={14}/> Keys</div>
+                              <button className="btn btn-add btn-sm" onClick={()=>addKey(job.id)}><Plus size={13}/> Add Key</button>
+                            </div>
+
+                            {(job.keys||[]).length === 0 ? (
+                              <p style={{color:'var(--text-muted)',fontSize:'.8125rem',padding:'.5rem 0'}}>No keys logged for this job yet.</p>
+                            ) : (
+                              <div style={{overflowX:'auto'}}>
+                                <table className="key-table">
+                                  <thead>
+                                    <tr>
+                                      <th>Type</th>
+                                      <th>Keyway</th>
+                                      <th>Site/Location</th>
+                                      <th>Bitting</th>
+                                      <th>Tag</th>
+                                      <th>Qty</th>
+                                      <th>Notes</th>
+                                      <th></th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {(job.keys||[]).map(k => (
+                                      <tr key={k.id}>
+                                        <td>
+                                          <select className="field-input field-select" style={{minWidth:120}} value={k.keyType} onChange={e=>updateKey(job.id,k.id,'keyType',e.target.value)}>
+                                            {KEY_TYPES.map(t=><option key={t}>{t}</option>)}
+                                          </select>
+                                        </td>
+                                        <td><input className="field-input" style={{minWidth:80}} value={k.keyway} onChange={e=>updateKey(job.id,k.id,'keyway',e.target.value)} placeholder="SC1"/></td>
+                                        <td><input className="field-input" style={{minWidth:80}} value={k.site||''} onChange={e=>updateKey(job.id,k.id,'site',e.target.value)} placeholder="Suite 201"/></td>
+                                        <td><input className="field-input" style={{minWidth:80}} value={k.bitting||''} onChange={e=>updateKey(job.id,k.id,'bitting',e.target.value)} placeholder="12345"/></td>
+                                        <td><input className="field-input" style={{minWidth:60}} value={k.tag||''} onChange={e=>updateKey(job.id,k.id,'tag',e.target.value)} placeholder="A1"/></td>
+                                        <td><input type="number" className="field-input" style={{width:60}} min={1} value={k.quantity||1} onChange={e=>updateKey(job.id,k.id,'quantity',parseInt(e.target.value)||1)}/></td>
+                                        <td><input className="field-input" style={{minWidth:100}} value={k.notes||''} onChange={e=>updateKey(job.id,k.id,'notes',e.target.value)} placeholder="Notes"/></td>
+                                        <td>
+                                          <button className="btn btn-danger btn-sm" onClick={()=>deleteKey(job.id,k.id)}><Trash2 size={12}/></button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* INFO TAB */}
+                {customerTab === 'info' && (
+                  <div style={{maxWidth:480}}>
+                    <div className="settings-card">
+                      <h3 className="condensed">Customer Details</h3>
+                      <div style={{display:'flex',flexDirection:'column',gap:'.75rem'}}>
+                        <div><div className="label">Name</div><div style={{color:'var(--text)'}}>{selectedCustomer.name||'—'}</div></div>
+                        <div><div className="label">Phone</div><div style={{color:'var(--text)'}}>{selectedCustomer.phone||'—'}</div></div>
+                        <div><div className="label">Address</div><div style={{color:'var(--text)'}}>{selectedCustomer.address||'—'}</div></div>
+                        <div><div className="label">Notes</div><div style={{color:'var(--text)',whiteSpace:'pre-wrap'}}>{selectedCustomer.notes||'—'}</div></div>
+                      </div>
+                      <button className="btn btn-ghost" style={{marginTop:'1rem'}} onClick={()=>startEditCustomer(selectedCustomer)}><Edit2 size={14}/> Edit Customer</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ─── KEY RECORDS VIEW ─── */}
+            {view === 'keys' && (
+              <div>
+                <div className="filter-bar">
+                  <Filter size={14} color="var(--text-muted)"/>
+                  <select className="field-input field-select" style={{width:'auto',padding:'.375rem 2rem .375rem .625rem',fontSize:'.875rem'}} value={keyFilter.type} onChange={e=>setKeyFilter(s=>({...s,type:e.target.value}))}>
+                    <option value="all">All Types</option>
+                    {KEY_TYPES.map(t=><option key={t}>{t}</option>)}
+                  </select>
+                  <div className="search-wrap" style={{maxWidth:220}}>
+                    <Search size={13}/>
+                    <input value={keyFilter.search} onChange={e=>setKeyFilter(s=>({...s,search:e.target.value}))} placeholder="Keyway, customer, bitting…"/>
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:.375+'rem',marginLeft:'auto'}}>
+                    <ArrowUpDown size={13} color="var(--text-muted)"/>
+                    <select className="field-input field-select" style={{width:'auto',padding:'.375rem 2rem .375rem .625rem',fontSize:'.875rem'}} value={keySortBy} onChange={e=>setKeySortBy(e.target.value)}>
+                      <option value="keyway">Sort: Keyway</option>
+                      <option value="type">Sort: Type</option>
+                      <option value="customer">Sort: Customer</option>
+                      <option value="date">Sort: Date</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{color:'var(--text-muted)',fontSize:'.8125rem',marginBottom:'.75rem'}}>
+                  {filteredKeys.length} key record{filteredKeys.length!==1?'s':''}
+                  {allKeys.length !== filteredKeys.length ? ` (of ${allKeys.length} total)` : ''}
+                </div>
+
+                {filteredKeys.length === 0 ? (
+                  <div className="empty-state">
+                    <Key size={48}/>
+                    <h3>{allKeys.length===0 ? 'No Keys Logged' : 'No Results'}</h3>
+                    <p style={{fontSize:'.875rem'}}>{allKeys.length===0 ? 'Keys are added through customer jobs' : 'Try changing your filter'}</p>
+                  </div>
+                ) : (
+                  filteredKeys.map((k,i) => (
+                    <div key={i} className="key-row">
+                      <div>
+                        <span className={`key-type-badge ${keyTypeClass(k.keyType)}`}>{k.keyType}</span>
+                      </div>
+                      <div className="key-keyway">{k.keyway||<span style={{color:'var(--text-muted)',fontWeight:400,fontFamily:'Barlow,sans-serif',fontSize:'.875rem'}}>—</span>}</div>
+                      <div className="key-details">
+                        {k.bitting && <div className="kd-item">Bitting: <span>{k.bitting}</span></div>}
+                        {k.tag && <div className="kd-item">Tag: <span>{k.tag}</span></div>}
+                        {k.site && <div className="kd-item">Site: <span>{k.site}</span></div>}
+                        {k.quantity > 1 && <div className="kd-item">Qty: <span>{k.quantity}</span></div>}
+                        {k.notes && <div className="kd-item">Notes: <span>{k.notes}</span></div>}
+                      </div>
+                      <div style={{textAlign:'right',flexShrink:0}}>
+                        <div
+                          style={{fontSize:'.8125rem',color:'var(--accent)',cursor:'pointer',fontWeight:500}}
+                          onClick={()=>{const c=customers.find(c=>c.id===k.customerId);if(c){openCustomer(c);setView('customers');}}}
+                        >
+                          {k.customerName}
+                        </div>
+                        <div style={{fontSize:'.75rem',color:'var(--text-muted)'}}>{k.jobDate}</div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* ─── SETTINGS VIEW ─── */}
+            {view === 'settings' && (
+              <div>
+                <div className="settings-card">
+                  <h3 className="condensed">Change Master Password</h3>
+                  {pwChange.msg && (
+                    <div className={pwChange.ok ? 'error-box' : 'error-box'} style={pwChange.ok?{background:'rgba(34,197,94,0.1)',borderColor:'rgba(34,197,94,0.3)',color:'#86efac',marginBottom:'1rem'}:{marginBottom:'1rem'}}>
+                      {pwChange.ok ? <CheckCircle size={16}/> : <AlertCircle size={16}/>}
+                      {pwChange.msg}
+                    </div>
+                  )}
+                  <div className="field-group">
+                    <label className="label">Current Password</label>
+                    <input type="password" className="field-input" value={pwChange.current} onChange={e=>setPwChange(s=>({...s,current:e.target.value,msg:''}))} placeholder="••••••••"/>
+                  </div>
+                  <div className="field-group">
+                    <label className="label">New Password</label>
+                    <input type="password" className="field-input" value={pwChange.next} onChange={e=>setPwChange(s=>({...s,next:e.target.value,msg:''}))} placeholder="Min 6 characters"/>
+                  </div>
+                  <div className="field-group">
+                    <label className="label">Confirm New Password</label>
+                    <input type="password" className="field-input" value={pwChange.confirm} onChange={e=>setPwChange(s=>({...s,confirm:e.target.value,msg:''}))} placeholder="Repeat new password"/>
+                  </div>
+                  <button className="btn btn-save" style={{width:'auto'}} onClick={handleChangePassword}><Save size={15}/> Update Password</button>
+                </div>
+
+                <div className="settings-card">
+                  <h3 className="condensed">Data Overview</h3>
+                  <div style={{display:'flex',gap:'1.5rem',flexWrap:'wrap'}}>
+                    <div>
+                      <div style={{fontSize:'2rem',fontFamily:'Barlow Condensed',fontWeight:700,color:'var(--accent)'}}>{customers.length}</div>
+                      <div style={{fontSize:'.8125rem',color:'var(--text-muted)'}}>Customers</div>
+                    </div>
+                    <div>
+                      <div style={{fontSize:'2rem',fontFamily:'Barlow Condensed',fontWeight:700,color:'var(--accent)'}}>{customers.reduce((s,c)=>s+(c.jobs||[]).length,0)}</div>
+                      <div style={{fontSize:'.8125rem',color:'var(--text-muted)'}}>Jobs</div>
+                    </div>
+                    <div>
+                      <div style={{fontSize:'2rem',fontFamily:'Barlow Condensed',fontWeight:700,color:'var(--accent)'}}>{allKeys.length}</div>
+                      <div style={{fontSize:'.8125rem',color:'var(--text-muted)'}}>Key Records</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="settings-card" style={{borderColor:'rgba(239,68,68,0.25)'}}>
+                  <h3 className="condensed" style={{color:'#fca5a5'}}>Danger Zone</h3>
+                  <p style={{fontSize:'.875rem',color:'var(--text-muted)',marginBottom:'1rem'}}>Permanently delete all customers, jobs, and key records. This cannot be undone.</p>
+                  <button className="btn btn-danger" onClick={()=>setConfirmDialog({
+                    message:'DELETE ALL DATA? This will permanently erase every customer, job, and key record. This absolutely cannot be undone.',
+                    onConfirm:()=>{persist([]);setConfirmDialog(null);},
+                    onCancel:()=>setConfirmDialog(null)
+                  })}><Trash2 size={14}/> Wipe All Data</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* CONFIRM DIALOG */}
+      {confirmDialog && (
+        <div className="overlay" onClick={e=>e.target===e.currentTarget&&confirmDialog.onCancel()}>
+          <div className="dialog">
+            <p>{confirmDialog.message}</p>
+            <div className="dialog-btns">
+              <button className="dialog-cancel" onClick={confirmDialog.onCancel}>Cancel</button>
+              <button className="dialog-delete" onClick={confirmDialog.onConfirm}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
