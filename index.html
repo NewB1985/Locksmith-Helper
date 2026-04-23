@@ -705,18 +705,29 @@
             cursor: pointer;
         }
         
+        .photo-viewer-hint {
+            font-size: 12px;
+            color: rgba(255,255,255,0.6);
+        }
+        
         .photo-viewer-content {
             flex: 1;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 20px;
+            overflow: hidden;
+            touch-action: none;
         }
         
         .photo-viewer-content img {
             max-width: 100%;
             max-height: 100%;
             object-fit: contain;
+            transform-origin: center center;
+            transition: transform 0.1s ease-out;
+            user-select: none;
+            -webkit-user-drag: none;
         }
         
         /* Toast */
@@ -1011,9 +1022,10 @@
 <div id="photo-viewer" class="photo-viewer hidden">
     <div class="photo-viewer-header">
         <button class="photo-viewer-close" onclick="closePhotoViewer()">✕</button>
+        <span class="photo-viewer-hint">Pinch to zoom • Double-tap to reset</span>
         <button class="photo-viewer-delete" onclick="deleteCurrentPhoto()">Delete</button>
     </div>
-    <div class="photo-viewer-content">
+    <div class="photo-viewer-content" id="photo-viewer-content">
         <img id="photo-viewer-img" src="">
     </div>
 </div>
@@ -1862,7 +1874,7 @@ function openCamera() {
         cameraTrack = stream.getVideoTracks()[0];
         document.getElementById('camera-video').srcObject = stream;
         
-        // Check for zoom capabilities
+        // Check for zoom capabilities and force minimum zoom
         var capabilities = cameraTrack.getCapabilities();
         if (capabilities.zoom) {
             minZoom = capabilities.zoom.min || 1;
@@ -1876,6 +1888,13 @@ function openCamera() {
             currentZoom = minZoom;
             
             document.getElementById('zoom-display').textContent = currentZoom.toFixed(1) + 'x';
+            
+            // Force camera to minimum zoom
+            cameraTrack.applyConstraints({
+                advanced: [{ zoom: minZoom }]
+            }).catch(function(err) {
+                console.error('Initial zoom reset error:', err);
+            });
         }
     }).catch(function(err) {
         console.error('Camera error:', err);
@@ -1986,13 +2005,133 @@ function viewPhoto(id) {
             break;
         }
     }
-    document.getElementById('photo-viewer-img').src = photo.dataUrl;
+    var img = document.getElementById('photo-viewer-img');
+    img.src = photo.dataUrl;
     document.getElementById('photo-viewer').classList.remove('hidden');
+    
+    // Reset zoom state
+    resetPhotoZoom();
+    initPhotoZoom();
 }
 
 function closePhotoViewer() {
     document.getElementById('photo-viewer').classList.add('hidden');
     viewingPhotoId = null;
+    resetPhotoZoom();
+}
+
+// Photo zoom variables
+var photoScale = 1;
+var photoTranslateX = 0;
+var photoTranslateY = 0;
+var photoLastDistance = 0;
+var photoLastTap = 0;
+var photoIsPinching = false;
+var photoPanStartX = 0;
+var photoPanStartY = 0;
+var photoLastTranslateX = 0;
+var photoLastTranslateY = 0;
+
+function resetPhotoZoom() {
+    photoScale = 1;
+    photoTranslateX = 0;
+    photoTranslateY = 0;
+    var img = document.getElementById('photo-viewer-img');
+    if (img) {
+        img.style.transform = 'scale(1) translate(0px, 0px)';
+    }
+}
+
+function updatePhotoTransform() {
+    var img = document.getElementById('photo-viewer-img');
+    img.style.transform = 'scale(' + photoScale + ') translate(' + photoTranslateX + 'px, ' + photoTranslateY + 'px)';
+}
+
+function getDistance(touches) {
+    var dx = touches[0].clientX - touches[1].clientX;
+    var dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+function initPhotoZoom() {
+    var content = document.getElementById('photo-viewer-content');
+    var img = document.getElementById('photo-viewer-img');
+    
+    // Remove old listeners by cloning
+    var newContent = content.cloneNode(true);
+    content.parentNode.replaceChild(newContent, content);
+    content = newContent;
+    img = document.getElementById('photo-viewer-img');
+    
+    // Double-tap to reset
+    content.addEventListener('click', function(e) {
+        var now = Date.now();
+        if (now - photoLastTap < 300) {
+            // Double tap
+            if (photoScale > 1) {
+                resetPhotoZoom();
+            } else {
+                photoScale = 2.5;
+                updatePhotoTransform();
+            }
+        }
+        photoLastTap = now;
+    });
+    
+    // Touch start
+    content.addEventListener('touchstart', function(e) {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            photoIsPinching = true;
+            photoLastDistance = getDistance(e.touches);
+        } else if (e.touches.length === 1 && photoScale > 1) {
+            photoPanStartX = e.touches[0].clientX;
+            photoPanStartY = e.touches[0].clientY;
+            photoLastTranslateX = photoTranslateX;
+            photoLastTranslateY = photoTranslateY;
+        }
+    }, { passive: false });
+    
+    // Touch move
+    content.addEventListener('touchmove', function(e) {
+        if (e.touches.length === 2 && photoIsPinching) {
+            e.preventDefault();
+            var distance = getDistance(e.touches);
+            var delta = distance / photoLastDistance;
+            photoScale = Math.min(5, Math.max(1, photoScale * delta));
+            photoLastDistance = distance;
+            
+            // Reset translation if zoomed out
+            if (photoScale <= 1) {
+                photoTranslateX = 0;
+                photoTranslateY = 0;
+            }
+            
+            updatePhotoTransform();
+        } else if (e.touches.length === 1 && photoScale > 1) {
+            e.preventDefault();
+            var dx = (e.touches[0].clientX - photoPanStartX) / photoScale;
+            var dy = (e.touches[0].clientY - photoPanStartY) / photoScale;
+            
+            // Limit panning
+            var maxPan = (photoScale - 1) * 100;
+            photoTranslateX = Math.min(maxPan, Math.max(-maxPan, photoLastTranslateX + dx));
+            photoTranslateY = Math.min(maxPan, Math.max(-maxPan, photoLastTranslateY + dy));
+            
+            updatePhotoTransform();
+        }
+    }, { passive: false });
+    
+    // Touch end
+    content.addEventListener('touchend', function(e) {
+        if (e.touches.length < 2) {
+            photoIsPinching = false;
+        }
+        if (e.touches.length === 0) {
+            photoLastTranslateX = photoTranslateX;
+            photoLastTranslateY = photoTranslateY;
+        }
+    });
 }
 
 function deleteCurrentPhoto() {
@@ -2078,221 +2217,270 @@ function toggleVoice() {
 function exportJob() {
     showToast('Preparing export...', '');
     
+    var MAX_ZIP_SIZE = 32 * 1024 * 1024; // 32MB in bytes
+    
     dbGetByIndex('doors', 'jobId', currentJob.id).then(function(doors) {
         doors.sort(function(a, b) { return a.sequence - b.sequence; });
         
-        var zip = new JSZip();
-        var photosFolder = zip.folder('Photos');
-        
-        // Create Excel workbook
-        var workbook = new ExcelJS.Workbook();
-        workbook.creator = 'DoorLog';
-        workbook.created = new Date();
-        
-        // ============ JOB INFO WORKSHEET ============
-        var infoSheet = workbook.addWorksheet('Job Info');
-        
-        // Style for labels
-        var labelStyle = {
-            font: { bold: true },
-            fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } },
-            font: { bold: true, color: { argb: 'FFFFFFFF' } },
-            alignment: { vertical: 'middle' }
-        };
-        
-        // Style for values
-        var valueStyle = {
-            alignment: { vertical: 'top', wrapText: true }
-        };
-        
-        // Set column widths
-        infoSheet.getColumn(1).width = 15;
-        infoSheet.getColumn(2).width = 60;
-        
-        // Add job info rows
-        var infoRows = [
-            ['Business', currentJob.business || currentJob.name || ''],
-            ['Address', currentJob.address || ''],
-            ['Total Doors', doors.length.toString()],
-            ['Created', new Date(currentJob.createdAt).toLocaleString()],
-            ['Job Notes', currentJob.notes || '']
-        ];
-        
-        infoRows.forEach(function(rowData, idx) {
-            var row = infoSheet.addRow(rowData);
-            row.getCell(1).font = { bold: true };
-            row.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
-            row.getCell(2).alignment = { vertical: 'top', wrapText: true };
-            
-            // Add borders
-            row.eachCell(function(cell) {
-                cell.border = {
-                    top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-                    left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-                    bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-                    right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
-                };
-            });
-            
-            // Make notes row taller if there are notes
-            if (rowData[0] === 'Job Notes' && rowData[1].length > 50) {
-                row.height = Math.min(100, 20 + Math.floor(rowData[1].length / 50) * 15);
-            }
-        });
-        
-        // ============ DOOR SURVEY WORKSHEET ============
-        var worksheet = workbook.addWorksheet('Door Survey', {
-            views: [{ state: 'frozen', xSplit: 0, ySplit: 1 }] // Freeze header row
-        });
-        
-        // Define columns with widths
-        worksheet.columns = [
-            { header: 'Door ID', key: 'doorId', width: 14 },
-            { header: 'Label', key: 'label', width: 20 },
-            { header: 'Floor', key: 'floor', width: 15 },
-            { header: 'Building', key: 'building', width: 18 },
-            { header: 'Photos', key: 'photoCount', width: 10 },
-            { header: 'Photo Folder', key: 'photoFolder', width: 30 },
-            { header: 'Notes', key: 'notes', width: 50 },
-            { header: 'Timestamp', key: 'timestamp', width: 20 }
-        ];
-        
-        // Style header row
-        var headerRow = worksheet.getRow(1);
-        headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-        headerRow.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FF2563EB' } // Blue background
-        };
-        headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
-        headerRow.height = 25;
-        
-        // Add borders to header
-        headerRow.eachCell(function(cell) {
-            cell.border = {
-                top: { style: 'thin', color: { argb: 'FF1E40AF' } },
-                left: { style: 'thin', color: { argb: 'FF1E40AF' } },
-                bottom: { style: 'medium', color: { argb: 'FF1E40AF' } },
-                right: { style: 'thin', color: { argb: 'FF1E40AF' } }
-            };
-        });
-        
-        // Enable auto-filter
-        worksheet.autoFilter = {
-            from: 'A1',
-            to: 'H1'
-        };
-        
-        var photoPromises = [];
-        var rowData = [];
-        
-        for (var i = 0; i < doors.length; i++) {
-            (function(door, index) {
-                var promise = dbGetByIndex('photos', 'doorId', door.id).then(function(photos) {
-                    photos.sort(function(a, b) { return a.sequence - b.sequence; });
-                    
-                    var folderName = door.label 
-                        ? door.doorId + '_' + door.label.replace(/[^a-zA-Z0-9]/g, '-')
-                        : door.doorId;
-                    
-                    if (photos.length > 0) {
-                        var doorFolder = photosFolder.folder(folderName);
-                        for (var j = 0; j < photos.length; j++) {
-                            var photo = photos[j];
-                            var base64Data = photo.dataUrl.split(',')[1];
-                            doorFolder.file(photo.filename, base64Data, { base64: true });
-                        }
-                    }
-                    
+        // First, gather all data including photo sizes
+        var doorDataPromises = doors.map(function(door, index) {
+            return dbGetByIndex('photos', 'doorId', door.id).then(function(photos) {
+                photos.sort(function(a, b) { return a.sequence - b.sequence; });
+                
+                var totalPhotoSize = 0;
+                var photoData = photos.map(function(photo) {
+                    var base64Data = photo.dataUrl.split(',')[1];
+                    var sizeInBytes = Math.floor(base64Data.length * 0.75); // Base64 to bytes
+                    totalPhotoSize += sizeInBytes;
                     return {
-                        index: index,
-                        doorId: door.doorId,
-                        label: door.label || '',
-                        floor: door.floor || '',
-                        building: door.building || '',
-                        photoCount: photos.length,
-                        photoFolder: photos.length > 0 ? 'Photos/' + folderName : '',
-                        notes: door.notes || '',
-                        timestamp: new Date(door.createdAt).toLocaleString()
+                        filename: photo.filename,
+                        base64Data: base64Data,
+                        size: sizeInBytes
                     };
                 });
-                photoPromises.push(promise);
-            })(doors[i], i);
+                
+                var folderName = door.label 
+                    ? door.doorId + '_' + door.label.replace(/[^a-zA-Z0-9]/g, '-')
+                    : door.doorId;
+                
+                return {
+                    index: index,
+                    door: door,
+                    doorId: door.doorId,
+                    label: door.label || '',
+                    floor: door.floor || '',
+                    building: door.building || '',
+                    photoCount: photos.length,
+                    photoFolder: photos.length > 0 ? 'Photos/' + folderName : '',
+                    folderName: folderName,
+                    notes: door.notes || '',
+                    timestamp: new Date(door.createdAt).toLocaleString(),
+                    photos: photoData,
+                    totalSize: totalPhotoSize
+                };
+            });
+        });
+        
+        return Promise.all(doorDataPromises);
+    }).then(function(doorDataList) {
+        // Sort by original index
+        doorDataList.sort(function(a, b) { return a.index - b.index; });
+        
+        // Split into chunks based on size
+        var chunks = [];
+        var currentChunk = [];
+        var currentChunkSize = 0;
+        
+        doorDataList.forEach(function(doorData) {
+            // If adding this door would exceed limit, start new chunk
+            // (but always add at least one door per chunk)
+            if (currentChunk.length > 0 && currentChunkSize + doorData.totalSize > MAX_ZIP_SIZE) {
+                chunks.push(currentChunk);
+                currentChunk = [];
+                currentChunkSize = 0;
+            }
+            currentChunk.push(doorData);
+            currentChunkSize += doorData.totalSize;
+        });
+        
+        // Don't forget the last chunk
+        if (currentChunk.length > 0) {
+            chunks.push(currentChunk);
         }
         
-        return Promise.all(photoPromises).then(function(rows) {
-            // Sort by original index
-            rows.sort(function(a, b) { return a.index - b.index; });
-            
-            // Add data rows
-            rows.forEach(function(rowInfo, idx) {
-                var row = worksheet.addRow({
-                    doorId: rowInfo.doorId,
-                    label: rowInfo.label,
-                    floor: rowInfo.floor,
-                    building: rowInfo.building,
-                    photoCount: rowInfo.photoCount,
-                    photoFolder: rowInfo.photoFolder,
-                    notes: rowInfo.notes,
-                    timestamp: rowInfo.timestamp
-                });
-                
-                // Alternating row colors
-                var fillColor = idx % 2 === 0 ? 'FFF8FAFC' : 'FFFFFFFF';
-                row.fill = {
-                    type: 'pattern',
-                    pattern: 'solid',
-                    fgColor: { argb: fillColor }
-                };
-                
-                // Row styling
-                row.alignment = { vertical: 'top', wrapText: true };
-                row.height = 20;
-                
-                // Add borders to all cells
-                row.eachCell(function(cell, colNumber) {
-                    cell.border = {
-                        top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-                        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-                        bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-                        right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
-                    };
-                    
-                    // Center align certain columns
-                    if (colNumber === 1 || colNumber === 5) {
-                        cell.alignment = { vertical: 'top', horizontal: 'center' };
-                    }
-                });
-                
-                // Special styling for notes column - wrap text and adjust height if needed
-                var notesCell = row.getCell(7);
-                notesCell.alignment = { vertical: 'top', wrapText: true };
-                if (rowInfo.notes && rowInfo.notes.length > 50) {
-                    row.height = Math.min(80, 20 + Math.floor(rowInfo.notes.length / 50) * 15);
-                }
-            });
-            
-            // Generate Excel file
-            return workbook.xlsx.writeBuffer();
-        }).then(function(excelBuffer) {
-            // Add Excel file to zip
-            zip.file('DoorLog_' + currentJob.name.replace(/[^a-zA-Z0-9]/g, '-') + '.xlsx', excelBuffer);
-            
-            return zip.generateAsync({ type: 'blob' });
+        // Generate a ZIP for each chunk
+        var totalParts = chunks.length;
+        var zipPromises = chunks.map(function(chunkDoors, chunkIndex) {
+            return createExportZip(chunkDoors, chunkIndex + 1, totalParts);
         });
-    }).then(function(blob) {
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = currentJob.name.replace(/[^a-zA-Z0-9]/g, '-') + '_' + new Date().toISOString().slice(0, 10) + '.zip';
-        a.click();
-        URL.revokeObjectURL(url);
         
-        showToast('Export complete!', 'success');
+        return Promise.all(zipPromises);
+    }).then(function(zipBlobs) {
+        // Download all ZIPs
+        var dateStr = new Date().toISOString().slice(0, 10);
+        var jobName = (currentJob.business || currentJob.name || 'Job').replace(/[^a-zA-Z0-9]/g, '-');
+        
+        zipBlobs.forEach(function(blob, idx) {
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            
+            if (zipBlobs.length === 1) {
+                a.download = jobName + '_' + dateStr + '.zip';
+            } else {
+                a.download = jobName + '_' + dateStr + '_Part' + (idx + 1) + 'of' + zipBlobs.length + '.zip';
+            }
+            
+            // Small delay between downloads to prevent browser blocking
+            setTimeout(function() {
+                a.click();
+                URL.revokeObjectURL(url);
+            }, idx * 500);
+        });
+        
+        if (zipBlobs.length === 1) {
+            showToast('Export complete!', 'success');
+        } else {
+            showToast('Export complete! ' + zipBlobs.length + ' files', 'success');
+        }
     }).catch(function(err) {
         console.error('Export error:', err);
         showToast('Export failed', 'error');
+    });
+}
+
+function createExportZip(doorDataList, partNumber, totalParts) {
+    var zip = new JSZip();
+    var photosFolder = zip.folder('Photos');
+    
+    // Create Excel workbook
+    var workbook = new ExcelJS.Workbook();
+    workbook.creator = 'DoorLog';
+    workbook.created = new Date();
+    
+    // ============ JOB INFO WORKSHEET ============
+    var infoSheet = workbook.addWorksheet('Job Info');
+    
+    // Set column widths
+    infoSheet.getColumn(1).width = 15;
+    infoSheet.getColumn(2).width = 60;
+    
+    // Add job info rows
+    var partInfo = totalParts > 1 ? ' (Part ' + partNumber + ' of ' + totalParts + ')' : '';
+    var infoRows = [
+        ['Business', currentJob.business || currentJob.name || ''],
+        ['Address', currentJob.address || ''],
+        ['Total Doors', doorDataList.length.toString() + partInfo],
+        ['Created', new Date(currentJob.createdAt).toLocaleString()],
+        ['Job Notes', currentJob.notes || '']
+    ];
+    
+    infoRows.forEach(function(rowData) {
+        var row = infoSheet.addRow(rowData);
+        row.getCell(1).font = { bold: true };
+        row.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+        row.getCell(2).alignment = { vertical: 'top', wrapText: true };
+        
+        // Add borders
+        row.eachCell(function(cell) {
+            cell.border = {
+                top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+            };
+        });
+        
+        // Auto-height for notes
+        if (rowData[0] === 'Job Notes' && rowData[1].length > 0) {
+            var lines = Math.ceil(rowData[1].length / 60); // 60 chars per line approx
+            row.height = Math.max(20, Math.min(200, lines * 15));
+        }
+    });
+    
+    // ============ DOOR SURVEY WORKSHEET ============
+    var worksheet = workbook.addWorksheet('Door Survey', {
+        views: [{ state: 'frozen', xSplit: 0, ySplit: 1 }]
+    });
+    
+    // Define columns with widths
+    worksheet.columns = [
+        { header: 'Door ID', key: 'doorId', width: 14 },
+        { header: 'Label', key: 'label', width: 20 },
+        { header: 'Floor', key: 'floor', width: 15 },
+        { header: 'Building', key: 'building', width: 18 },
+        { header: 'Photos', key: 'photoCount', width: 10 },
+        { header: 'Photo Folder', key: 'photoFolder', width: 30 },
+        { header: 'Notes', key: 'notes', width: 50 },
+        { header: 'Timestamp', key: 'timestamp', width: 20 }
+    ];
+    
+    // Style header row
+    var headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF2563EB' }
+    };
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+    headerRow.height = 25;
+    
+    // Add borders to header
+    headerRow.eachCell(function(cell) {
+        cell.border = {
+            top: { style: 'thin', color: { argb: 'FF1E40AF' } },
+            left: { style: 'thin', color: { argb: 'FF1E40AF' } },
+            bottom: { style: 'medium', color: { argb: 'FF1E40AF' } },
+            right: { style: 'thin', color: { argb: 'FF1E40AF' } }
+        };
+    });
+    
+    // Enable auto-filter
+    worksheet.autoFilter = { from: 'A1', to: 'H1' };
+    
+    // Add door data rows and photos
+    doorDataList.forEach(function(doorData, idx) {
+        // Add photos to ZIP
+        if (doorData.photos.length > 0) {
+            var doorFolder = photosFolder.folder(doorData.folderName);
+            doorData.photos.forEach(function(photo) {
+                doorFolder.file(photo.filename, photo.base64Data, { base64: true });
+            });
+        }
+        
+        // Add row to Excel
+        var row = worksheet.addRow({
+            doorId: doorData.doorId,
+            label: doorData.label,
+            floor: doorData.floor,
+            building: doorData.building,
+            photoCount: doorData.photoCount,
+            photoFolder: doorData.photoFolder,
+            notes: doorData.notes,
+            timestamp: doorData.timestamp
+        });
+        
+        // Alternating row colors
+        var fillColor = idx % 2 === 0 ? 'FFF8FAFC' : 'FFFFFFFF';
+        row.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: fillColor }
+        };
+        
+        // Add borders to all cells
+        row.eachCell(function(cell, colNumber) {
+            cell.border = {
+                top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+            };
+            
+            cell.alignment = { vertical: 'top', wrapText: true };
+            
+            // Center align certain columns
+            if (colNumber === 1 || colNumber === 5) {
+                cell.alignment = { vertical: 'top', horizontal: 'center', wrapText: true };
+            }
+        });
+        
+        // Calculate row height based on notes content
+        if (doorData.notes && doorData.notes.length > 0) {
+            var notesColWidth = 50; // characters
+            var lines = Math.ceil(doorData.notes.length / notesColWidth);
+            row.height = Math.max(20, Math.min(150, lines * 15));
+        } else {
+            row.height = 20;
+        }
+    });
+    
+    // Generate Excel file and add to ZIP
+    return workbook.xlsx.writeBuffer().then(function(excelBuffer) {
+        var jobName = (currentJob.business || currentJob.name || 'Job').replace(/[^a-zA-Z0-9]/g, '-');
+        zip.file('DoorLog_' + jobName + '.xlsx', excelBuffer);
+        return zip.generateAsync({ type: 'blob' });
     });
 }
 
