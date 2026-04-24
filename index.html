@@ -2217,7 +2217,7 @@ function toggleVoice() {
 function exportJob() {
     showToast('Preparing export...', '');
     
-    var MAX_ZIP_SIZE = 32 * 1024 * 1024; // 32MB in bytes
+    var MAX_ZIP_SIZE = 15 * 1024 * 1024; // 15MB in bytes (safe for email after encoding)
     
     dbGetByIndex('doors', 'jobId', currentJob.id).then(function(doors) {
         doors.sort(function(a, b) { return a.sequence - b.sequence; });
